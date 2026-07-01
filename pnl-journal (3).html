@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>P&L Journal</title>
+<style>
+  :root{
+    --bg:#000000;
+    --card:#141a26;
+    --card-2:#1b2233;
+    --weekend:#262e42;
+    --accent:#33e08a;
+    --accent-dim:#1d6b46;
+    --blue:#36c9f0;
+    --text:#f3f5f8;
+    --text-dim:#8b93a7;
+    --red:#ff5c6c;
+    --border:#2a3144;
+    --radius:18px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+    -webkit-user-select:none; user-select:none;
+    height:100%;
+  }
+  #app{
+    max-width:1100px; margin:0 auto; padding:18px 18px calc(100px + env(safe-area-inset-bottom)) 18px;
+    min-height:100vh;
+  }
+  /* Tabs */
+  .tabs{
+    display:flex; background:#0d2417; border-radius:999px; padding:5px; gap:4px; margin-bottom:18px;
+  }
+  .tab{
+    flex:1; text-align:center; padding:11px 0; border-radius:999px; font-weight:600; font-size:15px;
+    color:var(--text-dim); cursor:pointer; transition:all .15s ease;
+  }
+  .tab.active{ background:var(--accent); color:#06200f; }
+
+  /* Month nav */
+  .monthnav{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .monthnav .arrow{ font-size:22px; color:var(--text); cursor:pointer; padding:6px 14px; }
+  .monthnav .label{ font-size:19px; font-weight:600; }
+
+  /* Summary cards */
+  .summary{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px; }
+  .card{ background:var(--card); border-radius:var(--radius); padding:18px 20px; }
+  .card .ttl{ color:var(--text-dim); font-size:14px; margin-bottom:8px; }
+  .card .big{ font-size:30px; font-weight:700; }
+  .pnl-pos{ color:var(--accent); }
+  .pnl-neg{ color:var(--red); }
+  .pnl-zero{ color:var(--accent); }
+  .goalrow{ display:flex; align-items:center; justify-content:space-between; }
+  .goalbar{ height:8px; background:#384058; border-radius:99px; margin:10px 0 8px; overflow:hidden; }
+  .goalbar i{ display:block; height:100%; background:var(--accent); width:0%; }
+  .goalfoot{ display:flex; justify-content:space-between; font-size:14px; color:var(--text-dim); }
+  .editicon{ color:var(--blue); cursor:pointer; font-size:18px; }
+
+  /* week combined card */
+  .weekcard{ display:flex; justify-content:space-between; align-items:flex-start; }
+
+  /* Controls row */
+  .controls{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap; }
+  .pillbtn{ display:flex; align-items:center; gap:6px; font-weight:600; cursor:pointer; }
+  .pillbtn.weekend{ color:var(--text); }
+  .pillbtn.account{ color:var(--blue); }
+  .pillbtn .chev{ font-size:12px; opacity:.8; }
+  .acct-center{ display:flex; justify-content:center; margin-bottom:18px; }
+  .acct-center .pillbtn{ font-size:18px; }
+
+  /* Calendar (month) */
+  .weekdays{ display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:10px; }
+  .weekdays div{ text-align:center; color:var(--text-dim); font-size:12px; letter-spacing:.5px; font-weight:600; }
+  .grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:10px; }
+  .day{
+    background:var(--card-2); border-radius:14px; aspect-ratio:1/0.85; min-height:80px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    cursor:pointer; border:2px solid transparent; position:relative; padding:6px;
+  }
+  .day.weekend{ background:var(--weekend); }
+  .day.empty{ background:transparent; cursor:default; }
+  .day.today{ border-color:#fff; }
+  .day .num{ font-size:15px; color:var(--text); font-weight:500; }
+  .day .val{ font-size:13px; color:var(--text-dim); font-weight:600; }
+  .day .val.pos{ color:var(--accent); }
+  .day .val.neg{ color:var(--red); }
+
+  /* Week list */
+  .weeklist{ display:flex; flex-direction:column; gap:14px; }
+  .weekrow{
+    background:var(--card-2); border-radius:16px; padding:18px 20px; display:flex; align-items:center; justify-content:space-between;
+    cursor:pointer; border:2px solid transparent;
+  }
+  .weekrow.weekend{ background:var(--weekend); }
+  .weekrow.today{ border-color:#fff; }
+  .weekrow .dn{ display:flex; align-items:baseline; gap:10px; }
+  .weekrow .dnum{ font-size:22px; font-weight:600; }
+  .weekrow .dname{ font-size:13px; color:var(--text-dim); font-weight:600; letter-spacing:.5px; }
+  .weekrow .dval{ font-size:17px; color:var(--text-dim); font-weight:600; }
+  .weekrow .dval.pos{ color:var(--accent); }
+  .weekrow .dval.neg{ color:var(--red); }
+
+  /* Year grid */
+  .yeargrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .ymonth{ background:var(--card); border-radius:18px; padding:16px; cursor:pointer; border:2px solid transparent; }
+  .ymonth.cur{ border-color:#fff; }
+  .ymonth .ytitle{ text-align:center; color:var(--text-dim); font-size:14px; font-weight:600; margin-bottom:10px; }
+  .ymini{ display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-bottom:10px; }
+  .ymini div{ aspect-ratio:1; border-radius:5px; background:var(--card-2); }
+  .ymini div.pos{ background:var(--accent); }
+  .ymini div.neg{ background:var(--red); }
+  .ymini div.empty{ background:transparent; }
+  .ytotal{ text-align:center; font-size:15px; font-weight:700; color:var(--accent); }
+  .ytotal.neg{ color:var(--red); }
+
+  /* Bottom nav */
+  .bottomnav{
+    position:fixed; left:0; right:0; bottom:0; background:#0d1117ee; backdrop-filter:blur(14px);
+    border-top:1px solid var(--border); padding:10px 18px calc(10px + env(safe-area-inset-bottom)) 18px;
+    display:flex; justify-content:space-around;
+  }
+  .navitem{ display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--text-dim); font-size:12px; cursor:pointer; padding:6px 16px; border-radius:14px;}
+  .navitem.active{ color:var(--accent); background:#13351f; }
+  .navitem svg{ width:22px; height:22px; }
+
+  /* Modal */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-end; justify-content:center; z-index:50;}
+  .overlay.show{ display:flex; }
+  .sheet{ background:var(--card); width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:22px 22px calc(22px + env(safe-area-inset-bottom)); animation:up .2s ease; }
+  @keyframes up{ from{ transform:translateY(30px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  .sheet h3{ margin:0 0 16px; font-size:18px; }
+  .sheet label{ display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px; margin-top:14px;}
+  .sheet input, .sheet select{
+    width:100%; background:var(--card-2); border:1px solid var(--border); color:var(--text);
+    padding:13px 14px; border-radius:12px; font-size:16px;
+  }
+  .sheet .row{ display:flex; gap:10px; margin-top:20px;}
+  .sheet button{ flex:1; padding:13px; border-radius:12px; border:none; font-weight:600; font-size:15px; cursor:pointer;}
+  .btn-save{ background:var(--accent); color:#06200f; }
+  .btn-del{ background:#2a1620; color:var(--red); }
+  .btn-cancel{ background:var(--card-2); color:var(--text-dim); }
+  .closebar{ width:40px; height:4px; background:#3a4357; border-radius:99px; margin:0 auto 14px; }
+
+  .dropdown{ position:relative; }
+  .ddmenu{ position:absolute; top:120%; background:var(--card-2); border:1px solid var(--border); border-radius:12px; min-width:160px; z-index:40; overflow:hidden; display:none; }
+  .ddmenu.show{ display:block; }
+  .ddmenu div{ padding:12px 16px; font-size:14px; cursor:pointer; color:var(--text); }
+  .ddmenu div:hover, .ddmenu div.sel{ background:var(--accent-dim); }
+  .ddmenu .addnew{ color:var(--blue); border-top:1px solid var(--border); }
+  .acctrow{ display:flex; align-items:center; justify-content:space-between; padding:0 8px 0 16px; }
+  .acctrow.sel{ background:var(--accent-dim); }
+  .acctrow .accname{ flex:1; padding:12px 0; font-size:14px; cursor:pointer; }
+  .acctrow .accren{ padding:8px; color:var(--blue); cursor:pointer; font-size:14px; }
+
+  /* Analytics */
+  .sectiontitle{ font-size:16px; font-weight:700; margin:24px 0 14px; }
+  .sectiontitle:first-child{ margin-top:0; }
+  .statgrid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:6px; }
+  .stat{ background:var(--card); border-radius:16px; padding:16px 18px; }
+  .stat .ttl{ color:var(--text-dim); font-size:13px; margin-bottom:6px; }
+  .stat .val{ font-size:21px; font-weight:700; }
+  .curvewrap{ background:var(--card); border-radius:18px; padding:18px; }
+  .complist{ display:flex; flex-direction:column; gap:12px; }
+  .comprow{ background:var(--card); border-radius:14px; padding:14px 18px; }
+  .comprow .top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .comprow .name{ font-weight:600; font-size:15px; }
+  .comprow .amt{ font-weight:700; font-size:15px; }
+  .compbar{ height:10px; background:#384058; border-radius:99px; overflow:hidden; position:relative; }
+  .compbar i{ display:block; height:100%; border-radius:99px; }
+  .compbar i.pos{ background:var(--accent); }
+  .compbar i.neg{ background:var(--red); }
+  .empty-state{ text-align:center; color:var(--text-dim); padding:40px 10px; font-size:14px; }
+  .exportbar{ display:flex; justify-content:center; margin-bottom:22px; }
+  .exportbtn{ background:var(--card-2); border:1px solid var(--border); color:var(--blue); font-weight:600; font-size:14px; padding:13px 22px; border-radius:14px; cursor:pointer; }
+  .exportbtn:active{ background:var(--accent-dim); color:var(--text); }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="tabs">
+    <div class="tab" data-view="week">Week</div>
+    <div class="tab active" data-view="month">Month</div>
+    <div class="tab" data-view="year">Year</div>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<div class="bottomnav">
+  <div class="navitem navmain active" data-page="calendar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>
+    Calendar
+  </div>
+  <div class="navitem navmain" data-page="analytics">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l5-5 4 4 7-8"/></svg>
+    Analytics
+  </div>
+</div>
+
+<!-- Day entry modal -->
+<div class="overlay" id="dayOverlay">
+  <div class="sheet">
+    <div class="closebar"></div>
+    <h3 id="dayTitle">Edit day</h3>
+    <label>P&amp;L amount ($)</label>
+    <input type="number" inputmode="decimal" id="dayAmount" placeholder="e.g. 125.50 or -80">
+    <label>Note (optional)</label>
+    <input type="text" id="dayNote" placeholder="Trades, setup, notes...">
+    <div class="row">
+      <button class="btn-cancel" id="dayCancel">Cancel</button>
+      <button class="btn-del" id="dayDelete">Clear</button>
+      <button class="btn-save" id="daySave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Goal modal -->
+<div class="overlay" id="goalOverlay">
+  <div class="sheet">
+    <div class="closebar"></div>
+    <h3 id="goalTitle">Set goal</h3>
+    <label>Target ($)</label>
+    <input type="number" inputmode="decimal" id="goalInput" placeholder="e.g. 2000">
+    <div class="row">
+      <button class="btn-cancel" id="goalCancel">Cancel</button>
+      <button class="btn-save" id="goalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- New account modal -->
+<div class="overlay" id="acctOverlay">
+  <div class="sheet">
+    <div class="closebar"></div>
+    <h3 id="acctTitle">New account</h3>
+    <label>Account name</label>
+    <input type="text" id="acctInput" placeholder="e.g. Prop Firm 1">
+    <div class="row">
+      <button class="btn-cancel" id="acctCancel">Cancel</button>
+      <button class="btn-save" id="acctSave">Create</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var STORE_KEY = "pnl_journal_data_v2";
+  var data = loadData();
+
+  function loadData(){
+    try{
+      var raw = localStorage.getItem(STORE_KEY);
+      if(raw) return migrate(JSON.parse(raw));
+    }catch(e){}
+    try{
+      var old = localStorage.getItem("pnl_journal_data_v1");
+      if(old) return migrate(JSON.parse(old));
+    }catch(e){}
+    return {
+      accounts:{ "Main Account": { entries:{}, goals:{}, yearGoals:{} } },
+      currentAccount:"Main Account",
+      weekendsOn:false
+    };
+  }
+  function migrate(d){
+    Object.keys(d.accounts).forEach(function(k){
+      if(!d.accounts[k].yearGoals) d.accounts[k].yearGoals = {};
+      if(!d.accounts[k].goals) d.accounts[k].goals = {};
+    });
+    return d;
+  }
+  function save(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(data)); }catch(e){}
+  }
+
+  var view = "month";           // week | month | year
+  var page = "calendar";        // calendar | analytics
+  var today = new Date();
+  var curDate = new Date(today.getFullYear(), today.getMonth(), 1); // anchor for month/year; for week uses curWeekStart
+  var curWeekStart = startOfWeek(today);
+  var curYear = today.getFullYear();
+  var pendingDayKey = null;
+  var pendingGoalScope = null; // 'month' or 'year'
+
+  var content = document.getElementById("content");
+  var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var monthShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var dayNamesFull = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+
+  function curAcct(){ return data.accounts[data.currentAccount]; }
+  function monthKey(y,m){ return y+"-"+(m+1); }
+  function dayKeyOf(y,m,d){ return y+"-"+(m+1)+"-"+d; }
+  function dayKey(d){ return dayKeyOf(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function fmt(n){
+    var sign = n < 0 ? "-" : "";
+    return sign + "$" + Math.abs(n).toFixed(2);
+  }
+  function startOfWeek(d){
+    var dow = (d.getDay()+6)%7; // mon=0
+    var r = new Date(d.getFullYear(), d.getMonth(), d.getDate()-dow);
+    return r;
+  }
+  function sameDay(a,b){ return a.toDateString() === b.toDateString(); }
+
+  function isWeekendDow(dow){ return dow===0 || dow===6; } // 0=sun,6=sat
+
+  /* ---------- master render ---------- */
+  function render(){
+    document.querySelectorAll(".tab").forEach(function(t){
+      t.classList.toggle("active", t.getAttribute("data-view")===view);
+    });
+    document.querySelectorAll(".navmain").forEach(function(n){
+      n.classList.toggle("active", n.getAttribute("data-page")===page);
+    });
+    document.querySelector(".tabs").style.display = (page==="calendar") ? "flex" : "none";
+
+    if(page === "analytics"){ content.innerHTML = ""; renderAnalytics(); return; }
+
+    if(view === "week") renderWeek();
+    else if(view === "year") renderYear();
+    else renderMonth();
+  }
+
+  /* ---------- shared bits ---------- */
+  function navHTML(label){
+    return '<div class="monthnav"><div class="arrow" id="prevBtn">&#8249;</div>'+
+      '<div class="label">'+label+'</div><div class="arrow" id="nextBtn">&#8250;</div></div>';
+  }
+  function weekendControlHTML(){
+    return '<div class="pillbtn weekend dropdown" id="weekendDD">'+
+      '<span>Weekends: '+(data.weekendsOn?"ON":"OFF")+'</span><span class="chev">&#9662;</span>'+
+      '<div class="ddmenu" id="weekendMenu"><div data-val="on">Weekends: ON</div><div data-val="off">Weekends: OFF</div></div></div>';
+  }
+  function accountControlHTML(){
+    var menu = Object.keys(data.accounts).map(function(name){
+      return '<div class="acctrow '+(name===data.currentAccount?"sel":"")+'">'+
+        '<span class="accname" data-acc="'+esc(name)+'">'+esc(name)+'</span>'+
+        '<span class="accren" data-rename="'+esc(name)+'">&#9998;</span></div>';
+    }).join("") + '<div class="addnew" id="addAcctBtn">+ New account</div>';
+    return '<div class="pillbtn account dropdown" id="accountDD">'+
+      '<span>'+esc(data.currentAccount)+'</span><span class="chev">&#9662;</span>'+
+      '<div class="ddmenu" id="accountMenu">'+menu+'</div></div>';
+  }
+  function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; }); }
+
+  function bindCommon(){
+    var wdd = document.getElementById("weekendDD");
+    if(wdd) wdd.addEventListener("click", function(e){
+      e.stopPropagation();
+      var m = document.getElementById("weekendMenu");
+      closeMenus(); m.classList.toggle("show");
+    });
+    var wm = document.getElementById("weekendMenu");
+    if(wm) wm.addEventListener("click", function(e){
+      var val = e.target.getAttribute("data-val");
+      if(val){ data.weekendsOn = (val==="on"); save(); render(); }
+    });
+    var add = document.getElementById("accountDD");
+    if(add) add.addEventListener("click", function(e){
+      e.stopPropagation();
+      var m = document.getElementById("accountMenu");
+      closeMenus(); m.classList.toggle("show");
+    });
+    var am = document.getElementById("accountMenu");
+    if(am) am.addEventListener("click", function(e){
+      var renEl = e.target.closest("[data-rename]");
+      if(renEl){ openAcctModal("rename", renEl.getAttribute("data-rename")); return; }
+      var nameEl = e.target.closest("[data-acc]");
+      if(nameEl){ data.currentAccount = nameEl.getAttribute("data-acc"); save(); render(); return; }
+      if(e.target.id === "addAcctBtn"){ openAcctModal("new"); }
+    });
+    var pb = document.getElementById("prevBtn");
+    var nb = document.getElementById("nextBtn");
+    if(pb) pb.onclick = function(){ stepView(-1); };
+    if(nb) nb.onclick = function(){ stepView(1); };
+  }
+  function closeMenus(){
+    document.querySelectorAll(".ddmenu").forEach(function(m){ m.classList.remove("show"); });
+  }
+  function stepView(dir){
+    if(view === "week"){ curWeekStart = new Date(curWeekStart.getFullYear(), curWeekStart.getMonth(), curWeekStart.getDate()+7*dir); }
+    else if(view === "year"){ curYear += dir; }
+    else { curDate = new Date(curDate.getFullYear(), curDate.getMonth()+dir, 1); }
+    render();
+  }
+
+  /* ---------- MONTH VIEW ---------- */
+  function renderMonth(){
+    var year = curDate.getFullYear(), month = curDate.getMonth();
+    var entries = curAcct().entries;
+    var firstDay = new Date(year, month, 1);
+    var startOffset = (firstDay.getDay()+6)%7;
+    var daysInMonth = new Date(year, month+1, 0).getDate();
+    var total = 0;
+    var dayHtml = "";
+    for(var i=0;i<startOffset;i++) dayHtml += '<div class="day empty"></div>';
+    for(var dnum=1; dnum<=daysInMonth; dnum++){
+      var thisDate = new Date(year, month, dnum);
+      var dow = thisDate.getDay();
+      var we = isWeekendDow(dow) && !data.weekendsOn;
+      var key = dayKeyOf(year,month,dnum);
+      var entry = entries[key];
+      var isToday = sameDay(thisDate, today);
+      var valHtml = '<div class="val">&mdash;</div>';
+      if(entry && typeof entry.amount === "number"){
+        total += entry.amount;
+        var cls = entry.amount>0?"pos":(entry.amount<0?"neg":"");
+        valHtml = '<div class="val '+cls+'">'+fmt(entry.amount)+'</div>';
+      }
+      dayHtml += '<div class="day'+(we?" weekend":"")+(isToday?" today":"")+'" data-key="'+key+'" data-dnum="'+dnum+'">'+
+        '<div class="num">'+dnum+'</div>'+valHtml+'</div>';
+    }
+    var goal = curAcct().goals[monthKey(year,month)];
+    content.innerHTML =
+      navHTML(monthNames[month]+" "+year) +
+      '<div class="summary">'+
+        '<div class="card"><div class="ttl">Total P&amp;L</div><div class="big '+pnlClass(total)+'">'+fmt(total)+'</div></div>'+
+        '<div class="card"><div class="goalrow"><div class="ttl">Monthly goal</div><div class="editicon" id="goalEditBtn">&#9998;</div></div>'+
+          '<div class="goalbar"><i style="width:'+goalPct(total,goal)+'%"></i></div>'+
+          '<div class="goalfoot"><span>'+fmt(total)+'</span><span>'+(goal?fmt(goal)+" goal":"Not set yet")+'</span></div></div>'+
+      '</div>'+
+      '<div class="controls">'+weekendControlHTML()+accountControlHTML()+'</div>'+
+      '<div class="weekdays">'+dayNamesFull.map(function(d){return '<div>'+d+'</div>';}).join("")+'</div>'+
+      '<div class="grid">'+dayHtml+'</div>';
+
+    bindCommon();
+    content.querySelectorAll(".day[data-key]").forEach(function(el){
+      el.onclick = function(){ openDayModal(el.getAttribute("data-key"), monthNames[month]+" "+el.getAttribute("data-dnum")+", "+year); };
+    });
+    var ge = document.getElementById("goalEditBtn");
+    if(ge) ge.onclick = function(){ openGoalModal("month", monthKey(year,month), "Set monthly goal"); };
+  }
+
+  function pnlClass(n){ return n>0?"pnl-pos":(n<0?"pnl-neg":"pnl-zero"); }
+  function goalPct(total, goal){
+    if(!goal || goal<=0) return 0;
+    return Math.max(0, Math.min(100, (total/goal)*100));
+  }
+
+  /* ---------- WEEK VIEW ---------- */
+  function renderWeek(){
+    var entries = curAcct().entries;
+    var days = [];
+    for(var i=0;i<7;i++){
+      var d = new Date(curWeekStart.getFullYear(), curWeekStart.getMonth(), curWeekStart.getDate()+i);
+      days.push(d);
+    }
+    var visibleDays = days.filter(function(d){ return data.weekendsOn || !isWeekendDow(d.getDay()); });
+    var total = 0;
+    var rows = visibleDays.map(function(d){
+      var key = dayKey(d);
+      var entry = entries[key];
+      var dow = d.getDay();
+      var we = isWeekendDow(dow);
+      var isToday = sameDay(d, today);
+      var amt = entry && typeof entry.amount === "number" ? entry.amount : null;
+      if(amt !== null) total += amt;
+      var valHtml = amt===null ? '<div class="dval">&mdash;</div>' : '<div class="dval '+(amt>0?"pos":(amt<0?"neg":""))+'">'+fmt(amt)+'</div>';
+      return '<div class="weekrow'+(we?" weekend":"")+(isToday?" today":"")+'" data-key="'+key+'" data-label="'+dayNamesFull[(dow+6)%7]+' '+(d.getMonth()+1)+'/'+d.getDate()+'">'+
+        '<div class="dn"><div class="dnum">'+d.getDate()+'</div><div class="dname">'+dayNamesFull[(dow+6)%7]+'</div></div>'+valHtml+'</div>';
+    }).join("");
+
+    var rangeLabel = formatWeekRange(days[0], days[6]);
+
+    content.innerHTML =
+      navHTML(rangeLabel) +
+      '<div class="card weekcard" style="margin-bottom:18px;">'+
+        '<div><div class="ttl">Total P&amp;L</div><div class="big '+pnlClass(total)+'">'+fmt(total)+'</div></div>'+
+        accountControlHTML()+
+      '</div>'+
+      '<div class="controls">'+weekendControlHTML()+'<span></span></div>'+
+      '<div class="weeklist">'+rows+'</div>';
+
+    bindCommon();
+    content.querySelectorAll(".weekrow").forEach(function(el){
+      el.onclick = function(){ openDayModal(el.getAttribute("data-key"), el.getAttribute("data-label")); };
+    });
+  }
+  function formatWeekRange(a,b){
+    var sameMonth = a.getMonth()===b.getMonth();
+    if(sameMonth) return monthShort[a.getMonth()]+" "+a.getDate()+" \u2013 "+b.getDate()+", "+b.getFullYear();
+    return monthShort[a.getMonth()]+" "+a.getDate()+" \u2013 "+monthShort[b.getMonth()]+" "+b.getDate()+", "+b.getFullYear();
+  }
+
+  /* ---------- YEAR VIEW ---------- */
+  function renderYear(){
+    var entries = curAcct().entries;
+    var yearTotal = 0;
+    var monthCards = "";
+    for(var m=0; m<12; m++){
+      var daysInMonth = new Date(curYear, m+1, 0).getDate();
+      var firstDay = new Date(curYear, m, 1);
+      var offset = (firstDay.getDay()+6)%7;
+      var mTotal = 0;
+      var cells = "";
+      for(var i=0;i<offset;i++) cells += '<div class="empty"></div>';
+      for(var dnum=1; dnum<=daysInMonth; dnum++){
+        var key = dayKeyOf(curYear,m,dnum);
+        var entry = entries[key];
+        var cls = "";
+        if(entry && typeof entry.amount === "number"){
+          mTotal += entry.amount;
+          cls = entry.amount>0?"pos":(entry.amount<0?"neg":"");
+        }
+        cells += '<div class="'+cls+'"></div>';
+      }
+      yearTotal += mTotal;
+      var isCur = (m===today.getMonth() && curYear===today.getFullYear());
+      monthCards += '<div class="ymonth'+(isCur?" cur":"")+'" data-m="'+m+'">'+
+        '<div class="ytitle">'+monthShort[m]+'</div>'+
+        '<div class="ymini">'+cells+'</div>'+
+        '<div class="ytotal'+(mTotal<0?" neg":"")+'">'+fmt(mTotal)+'</div></div>';
+    }
+    var goal = curAcct().yearGoals[curYear];
+    content.innerHTML =
+      navHTML(""+curYear) +
+      '<div class="summary">'+
+        '<div class="card"><div class="ttl">Total P&amp;L</div><div class="big '+pnlClass(yearTotal)+'">'+fmt(yearTotal)+'</div></div>'+
+        '<div class="card"><div class="goalrow"><div class="ttl">Yearly goal</div><div class="editicon" id="goalEditBtn">&#9998;</div></div>'+
+          '<div class="goalbar"><i style="width:'+goalPct(yearTotal,goal)+'%"></i></div>'+
+          '<div class="goalfoot"><span>'+fmt(yearTotal)+'</span><span>'+(goal?fmt(goal)+" goal":"Not set yet")+'</span></div></div>'+
+      '</div>'+
+      '<div class="acct-center">'+accountControlHTML()+'</div>'+
+      '<div class="yeargrid">'+monthCards+'</div>';
+
+    bindCommon();
+    var ge = document.getElementById("goalEditBtn");
+    if(ge) ge.onclick = function(){ openGoalModal("year", curYear, "Set yearly goal"); };
+    content.querySelectorAll(".ymonth").forEach(function(el){
+      el.onclick = function(){
+        var m = parseInt(el.getAttribute("data-m"),10);
+        curDate = new Date(curYear, m, 1);
+        view = "month";
+        render();
+      };
+    });
+  }
+
+  /* ---------- ANALYTICS ---------- */
+  function renderAnalytics(){
+    var names = Object.keys(data.accounts);
+    var acct = curAcct();
+    var entryList = Object.keys(acct.entries).map(function(k){ return {key:k, amount:acct.entries[k].amount}; })
+      .filter(function(e){ return typeof e.amount === "number"; });
+    entryList.sort(function(a,b){
+      var pa = a.key.split("-").map(Number), pb = b.key.split("-").map(Number);
+      return (new Date(pa[0],pa[1]-1,pa[2])) - (new Date(pb[0],pb[1]-1,pb[2]));
+    });
+
+    var totalTrades = entryList.length;
+    var wins = entryList.filter(function(e){ return e.amount>0; });
+    var losses = entryList.filter(function(e){ return e.amount<0; });
+    var winRate = totalTrades ? Math.round((wins.length/totalTrades)*100) : 0;
+    var avgWin = wins.length ? wins.reduce(function(s,e){return s+e.amount;},0)/wins.length : 0;
+    var avgLoss = losses.length ? losses.reduce(function(s,e){return s+e.amount;},0)/losses.length : 0;
+    var best = entryList.reduce(function(m,e){ return (!m || e.amount>m.amount) ? e : m; }, null);
+    var worst = entryList.reduce(function(m,e){ return (!m || e.amount<m.amount) ? e : m; }, null);
+    var total = entryList.reduce(function(s,e){return s+e.amount;},0);
+
+    var html = '<div class="acct-center">'+accountControlHTML()+'</div>';
+    html += '<div class="exportbar"><button id="exportBtn" class="exportbtn">&#8595; Export all data (CSV for Google Sheets)</button></div>';
+
+    if(totalTrades === 0){
+      html += '<div class="empty-state">No entries yet for '+esc(data.currentAccount)+'.<br>Add P&amp;L on the Calendar tab to see analytics here.</div>';
+    } else {
+      html += '<div class="sectiontitle">Overview \u2014 '+esc(data.currentAccount)+'</div>';
+      html += '<div class="statgrid">'+
+        stat("Total P&L", fmt(total), pnlClass(total))+
+        stat("Win rate", winRate+"%", "")+
+        stat("Avg win", fmt(avgWin), "pnl-pos")+
+        stat("Avg loss", fmt(avgLoss), "pnl-neg")+
+        stat("Best day", best?fmt(best.amount):"\u2014", "pnl-pos")+
+        stat("Worst day", worst?fmt(worst.amount):"\u2014", "pnl-neg")+
+      '</div>';
+
+    }
+
+    if(names.length > 1){
+      html += '<div class="sectiontitle">Compare accounts</div>';
+      var totals = names.map(function(n){
+        var es = data.accounts[n].entries;
+        var t = 0;
+        Object.keys(es).forEach(function(k){ if(typeof es[k].amount==="number") t += es[k].amount; });
+        return {name:n, total:t};
+      });
+      var maxAbs = Math.max(1, Math.max.apply(null, totals.map(function(t){ return Math.abs(t.total); })));
+      totals.sort(function(a,b){ return b.total - a.total; });
+      html += '<div class="complist">'+totals.map(function(t){
+        var pct = Math.max(4, Math.round((Math.abs(t.total)/maxAbs)*100));
+        var cls = t.total>=0 ? "pos" : "neg";
+        return '<div class="comprow"><div class="top"><div class="name">'+esc(t.name)+'</div><div class="amt '+pnlClass(t.total)+'">'+fmt(t.total)+'</div></div>'+
+          '<div class="compbar"><i class="'+cls+'" style="width:'+pct+'%"></i></div></div>';
+      }).join("")+'</div>';
+    }
+
+    content.innerHTML = html;
+    bindCommon();
+    var exB = document.getElementById("exportBtn");
+    if(exB) exB.onclick = exportCSV;
+  }
+
+  function csvCell(v){
+    v = (v===undefined||v===null) ? "" : String(v);
+    if(/[",\n]/.test(v)) v = '"'+v.replace(/"/g,'""')+'"';
+    return v;
+  }
+  function exportCSV(){
+    var rows = [["Type","Account","Period/Date","Amount","Note"]];
+    Object.keys(data.accounts).forEach(function(accName){
+      var acc = data.accounts[accName];
+      Object.keys(acc.entries).sort().forEach(function(k){
+        var e = acc.entries[k];
+        if(typeof e.amount === "number"){
+          rows.push(["Entry", accName, k, e.amount, e.note||""]);
+        }
+      });
+      Object.keys(acc.goals||{}).sort().forEach(function(k){
+        rows.push(["Monthly Goal", accName, k, acc.goals[k], ""]);
+      });
+      Object.keys(acc.yearGoals||{}).sort().forEach(function(k){
+        rows.push(["Yearly Goal", accName, k, acc.yearGoals[k], ""]);
+      });
+    });
+    var csv = rows.map(function(r){ return r.map(csvCell).join(","); }).join("\r\n");
+    var blob = new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8;"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    var stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = "pnl_journal_export_"+stamp+".csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  }
+  function stat(ttl, val, cls){
+    return '<div class="stat"><div class="ttl">'+ttl+'</div><div class="val '+cls+'">'+val+'</div></div>';
+  }
+
+  /* ---------- Modals ---------- */
+  var dayOverlay = document.getElementById("dayOverlay");
+  var dayTitle = document.getElementById("dayTitle");
+  var dayAmount = document.getElementById("dayAmount");
+  var dayNote = document.getElementById("dayNote");
+
+  function openDayModal(key, label){
+    pendingDayKey = key;
+    dayTitle.textContent = label;
+    var entry = curAcct().entries[key];
+    dayAmount.value = entry ? entry.amount : "";
+    dayNote.value = entry && entry.note ? entry.note : "";
+    dayOverlay.classList.add("show");
+    setTimeout(function(){ dayAmount.focus(); }, 50);
+  }
+  document.getElementById("dayCancel").onclick = function(){ dayOverlay.classList.remove("show"); };
+  document.getElementById("dayDelete").onclick = function(){
+    delete curAcct().entries[pendingDayKey];
+    save(); dayOverlay.classList.remove("show"); render();
+  };
+  document.getElementById("daySave").onclick = function(){
+    var amt = parseFloat(dayAmount.value);
+    if(isNaN(amt)){ dayOverlay.classList.remove("show"); return; }
+    curAcct().entries[pendingDayKey] = { amount: amt, note: dayNote.value || "" };
+    save(); dayOverlay.classList.remove("show"); render();
+  };
+
+  var goalOverlay = document.getElementById("goalOverlay");
+  var goalInput = document.getElementById("goalInput");
+  var goalTitleEl = document.getElementById("goalTitle");
+  function openGoalModal(scope, key, title){
+    pendingGoalScope = scope;
+    pendingDayKey = key;
+    goalTitleEl.textContent = title;
+    var existing = scope==="month" ? curAcct().goals[key] : curAcct().yearGoals[key];
+    goalInput.value = existing || "";
+    goalOverlay.classList.add("show");
+    setTimeout(function(){ goalInput.focus(); }, 50);
+  }
+  document.getElementById("goalCancel").onclick = function(){ goalOverlay.classList.remove("show"); };
+  document.getElementById("goalSave").onclick = function(){
+    var v = parseFloat(goalInput.value);
+    var bag = pendingGoalScope==="month" ? curAcct().goals : curAcct().yearGoals;
+    if(!isNaN(v) && v>0) bag[pendingDayKey] = v; else delete bag[pendingDayKey];
+    save(); goalOverlay.classList.remove("show"); render();
+  };
+
+  var acctOverlay = document.getElementById("acctOverlay");
+  var acctInput = document.getElementById("acctInput");
+  var acctTitleEl = document.getElementById("acctTitle");
+  var acctMode = "new";
+  var pendingRenameOld = null;
+  function openAcctModal(mode, oldName){
+    acctMode = mode || "new";
+    pendingRenameOld = oldName || null;
+    if(acctMode === "rename"){
+      acctTitleEl.textContent = "Rename account";
+      acctInput.value = oldName;
+    } else {
+      acctTitleEl.textContent = "New account";
+      acctInput.value = "";
+    }
+    closeMenus();
+    acctOverlay.classList.add("show");
+    setTimeout(function(){ acctInput.focus(); acctInput.select(); }, 50);
+  }
+  document.getElementById("acctCancel").onclick = function(){ acctOverlay.classList.remove("show"); };
+  document.getElementById("acctSave").onclick = function(){
+    var name = acctInput.value.trim();
+    if(!name){ acctOverlay.classList.remove("show"); return; }
+    if(acctMode === "rename"){
+      var old = pendingRenameOld;
+      if(name !== old && !data.accounts[name]){
+        data.accounts[name] = data.accounts[old];
+        delete data.accounts[old];
+        if(data.currentAccount === old) data.currentAccount = name;
+        save(); render();
+      }
+    } else {
+      if(!data.accounts[name]){
+        data.accounts[name] = { entries:{}, goals:{}, yearGoals:{} };
+        data.currentAccount = name;
+        save(); render();
+      }
+    }
+    acctOverlay.classList.remove("show");
+  };
+
+  document.body.addEventListener("click", closeMenus);
+
+  document.querySelectorAll(".tab").forEach(function(tab){
+    tab.onclick = function(){ view = tab.getAttribute("data-view"); render(); };
+  });
+  document.querySelectorAll(".navmain").forEach(function(nav){
+    nav.onclick = function(){ page = nav.getAttribute("data-page"); render(); };
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
